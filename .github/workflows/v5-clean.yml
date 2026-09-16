@@ -19,10 +19,7 @@ jobs:
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text()
-          s=s.replace('\\\\n/* V5 LIGHT PROFESSIONAL THEME */','\n/* V5 LIGHT PROFESSIONAL THEME */')
-          s=s.replace('}\\\\n</style>','}\n</style>')
-          s=s.replace('\\\\n<section class="panel guidance"','\n<section class="panel guidance"')
-          s=s.replace('</section>\\\\n<section class="panel portfolio"','</section>\n<section class="panel portfolio"')
+          s=s.replace(r'\n','\n')
           p.write_text(s)
           PY
       - name: Commit cleanup
