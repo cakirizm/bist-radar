@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BIST Radar V1</title>
+<style>
+  :root{--bg:#0b1020;--panel:#121a2f;--panel2:#17213a;--text:#edf2ff;--muted:#8e9bb8;--line:#24304e;--good:#6ee7a8;--warn:#ffd166;--bad:#ff7b89;--blue:#78a9ff;--chip:#1c2846}
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Arial;background:linear-gradient(180deg,#09101e,#0e1425 45%,#0b1020);color:var(--text);min-height:100vh}
+  .wrap{max-width:1280px;margin:auto;padding:26px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.brand h1{margin:0;font-size:26px;letter-spacing:-.4px}.brand p{margin:6px 0 0;color:var(--muted);font-size:13px}.actions{display:flex;gap:10px;align-items:center}.btn{border:0;background:#f1f5ff;color:#11182a;padding:12px 18px;border-radius:12px;font-weight:800;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .status{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}.pill{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:8px 11px;color:var(--muted);font-size:12px}.pill strong{color:var(--text)}
+  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-bottom:14px}.card{background:rgba(18,26,47,.94);border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:0 12px 40px rgba(0,0,0,.15)}.card h2{font-size:14px;margin:0 0 14px}.market{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}.big{font-size:30px;font-weight:850}.chg{font-weight:800}.good{color:var(--good)}.bad{color:var(--bad)}.muted{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.section-head h2{margin:0;font-size:14px}.count{font-size:11px;color:var(--muted)}
+  .row{display:grid;grid-template-columns:74px 1fr 80px 84px;gap:10px;align-items:center;padding:11px 8px;border-top:1px solid rgba(36,48,78,.7);cursor:pointer}.row:first-of-type{border-top:0}.sym{font-weight:850}.bar{height:7px;background:#0b1224;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#5f89ff,#7fd6ff);border-radius:99px}.score{text-align:right;font-weight:850}.move{text-align:right;font-size:12px}.empty{padding:18px 4px;color:var(--muted);font-size:13px}
+  .tabs{display:flex;gap:8px;margin:18px 0 10px;flex-wrap:wrap}.tab{padding:8px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--muted);cursor:pointer}.tab.active{background:#f1f5ff;color:#11182a;font-weight:800}
+  table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 9px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-size:11px;position:sticky;top:0;background:var(--panel)}tbody tr{cursor:pointer}tbody tr:hover{background:#17213a}.table-wrap{max-height:440px;overflow:auto;border-radius:12px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:5}.modal.open{display:flex}.modalbox{width:min(680px,100%);background:#11192d;border:1px solid var(--line);border-radius:18px;padding:20px}.modalhead{display:flex;justify-content:space-between;align-items:center}.close{border:0;background:transparent;color:var(--text);font-size:24px;cursor:pointer}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}.metric{background:#17213a;border:1px solid var(--line);padding:11px;border-radius:12px}.metric small{display:block;color:var(--muted);margin-bottom:5px}.metric strong{font-size:18px}
+  .error{display:none;background:#3a1820;border:1px solid #74303d;color:#ffb5bf;padding:12px;border-radius:12px;margin-bottom:14px}.loading .btn{pointer-events:none;opacity:.65}
+  @media(max-width:850px){.hero,.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions .btn{flex:1}.row{grid-template-columns:66px 1fr 68px}.move{display:none}.metrics{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="top">
+    <div class="brand"><h1>BIST RADAR <span class="muted">V1</span></h1><p>Kişisel, sade teknik tarama • TradingView widget yok</p></div>
+    <div class="actions"><button class="btn ghost" id="watchBtn">⭐ Sepetim</button><button class="btn" id="scanBtn">🔍 BIST'i Tara</button></div>
+  </div>
+  <div class="error" id="error"></div>
+  <div class="status">
+    <span class="pill">Kaynak: <strong id="source">—</strong></span>
+    <span class="pill">Son tarama: <strong id="updated">—</strong></span>
+    <span class="pill">Sonraki otomatik kontrol: <strong id="next">—</strong></span>
+    <span class="pill">Evren: <strong id="universe">—</strong></span>
+  </div>
+
+  <div class="hero">
+    <div class="card"><h2>PİYASA</h2><div class="market"><div><div class="muted">BIST 100</div><div class="big" id="xPrice">—</div></div><div><div class="chg" id="xChange">—</div><div class="muted" id="xMom">60g momentum: —</div></div></div></div>
+    <div class="card"><h2>RADAR ÖZETİ</h2><div class="market"><div><div class="muted">Radar ≥72</div><div class="big" id="radarCount">—</div></div><div><div class="muted">Erken sinyal 65–71.9</div><div class="big" id="earlyCount">—</div></div></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="section-head"><h2>🆕 YENİ RADARA GİRENLER</h2><span class="count" id="newCount"></span></div><div id="newList"></div></div>
+    <div class="card"><div class="section-head"><h2>🔥 GÜCÜNÜ KORUYANLAR</h2><span class="count" id="strongCount"></span></div><div id="strongList"></div></div>
+    <div class="card"><div class="section-head"><h2>⚡ ERKEN SİNYALLER</h2><span class="count" id="earlyListCount"></span></div><div id="earlyList"></div></div>
+    <div class="card"><div class="section-head"><h2>⚠️ ZAYIFLAYANLAR</h2><span class="count" id="weakCount"></span></div><div id="weakList"></div></div>
+  </div>
+
+  <div class="tabs"><button class="tab active" data-view="all">Tüm Hisseler</button><button class="tab" data-view="watch">Sepetim</button></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Hisse</th><th>Fiyat</th><th>Gün %</th><th>Radar</th><th>Sıra Δ</th><th>Trend</th><th>Momentum</th><th>Hacim</th><th>Relatif</th><th>RSI</th></tr></thead><tbody id="tbody"></tbody></table></div></div>
+</div>
+
+<div class="modal" id="modal"><div class="modalbox"><div class="modalhead"><div><div class="muted">HİSSE DETAYI</div><h2 id="mTitle" style="margin:5px 0 0"></h2></div><button class="close" id="close">×</button></div><div class="metrics" id="metrics"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn ghost" id="watchToggle">⭐ Sepete Ekle</button></div></div></div>
+
+<script>
+const S={data:null,prev:null,watch:new Set(JSON.parse(localStorage.getItem('bistRadarWatch')||'[]')),view:'all',nextAt:null};
+const $=s=>document.querySelector(s); const fmt=(n,d=2)=>n==null||!isFinite(n)?'—':Number(n).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sign=n=>n==null?'—':`${n>=0?'+':''}${fmt(n)}%`; const cls=n=>n>0?'good':n<0?'bad':'muted';
+function prevMap(){return new Map((S.prev?.stocks||[]).map(x=>[x.symbol,x]));}
+function enrich(x){const p=prevMap().get(x.symbol); return {...x,prev:p,rankDelta:p?p.rank-x.rank:null,scoreDelta:p?x.score.total-p.score.total:null};}
+function rowHtml(x){const e=enrich(x); const delta=e.rankDelta==null?'YENİ':`${e.rankDelta>0?'▲':e.rankDelta<0?'▼':'→'} ${Math.abs(e.rankDelta)}`;return `<div class="row" data-symbol="${x.symbol}"><div class="sym">${x.symbol}</div><div class="bar"><i style="width:${x.score.total}%"></i></div><div class="score">${fmt(x.score.total,1)}</div><div class="move ${e.rankDelta>0?'good':e.rankDelta<0?'bad':'muted'}">${delta}</div></div>`}
+function renderList(sel,items,countSel){$(sel).innerHTML=items.length?items.slice(0,8).map(rowHtml).join(''):`<div class="empty">Bu taramada yok.</div>`; if(countSel)$(countSel).textContent=`${items.length} hisse`;}
+function categorize(){const stocks=S.data?.stocks||[];const pm=prevMap();const n=[],s=[],e=[],w=[];for(const x of stocks){const p=pm.get(x.symbol);if(x.score.total>=72 && (!p||p.score.total<72))n.push(enrich(x));else if(x.score.total>=72)s.push(enrich(x));if(x.score.total>=65&&x.score.total<72&&(!p||x.score.total-p.score.total>=2))e.push(enrich(x));if(p&&((x.score.total-p.score.total)<=-6||(p.score.total>=72&&x.score.total<68)))w.push(enrich(x));}
+ n.sort((a,b)=>(b.scoreDelta??99)-(a.scoreDelta??99));s.sort((a,b)=>b.score.total-a.score.total);e.sort((a,b)=>(b.scoreDelta??0)-(a.scoreDelta??0));w.sort((a,b)=>(a.scoreDelta??0)-(b.scoreDelta??0));return{n,s,e,w}}
+function render(){if(!S.data)return;const d=S.data;$('#source').textContent='Yahoo / sunucu tarafı';$('#updated').textContent=new Date(d.generatedAt).toLocaleString('tr-TR');$('#universe').textContent=`${d.successCount}/${d.universeCount}`;$('#xPrice').textContent=fmt(d.index.price);$('#xChange').textContent=sign(d.index.changePct);$('#xChange').className=`chg ${cls(d.index.changePct)}`;$('#xMom').textContent=`60g momentum: ${sign(d.index.mom60)}`;const radar=d.stocks.filter(x=>x.score.total>=72),early=d.stocks.filter(x=>x.score.total>=65&&x.score.total<72);$('#radarCount').textContent=radar.length;$('#earlyCount').textContent=early.length;const c=categorize();renderList('#newList',c.n,'#newCount');renderList('#strongList',c.s,'#strongCount');renderList('#earlyList',c.e,'#earlyListCount');renderList('#weakList',c.w,'#weakCount');renderTable();bindRows();}
+function renderTable(){let arr=(S.data?.stocks||[]).map(enrich);if(S.view==='watch')arr=arr.filter(x=>S.watch.has(x.symbol));$('#tbody').innerHTML=arr.map(x=>`<tr data-symbol="${x.symbol}"><td><strong>${S.watch.has(x.symbol)?'⭐ ':''}${x.symbol}</strong></td><td>${fmt(x.price)}</td><td class="${cls(x.changePct)}">${sign(x.changePct)}</td><td><strong>${fmt(x.score.total,1)}</strong></td><td class="${x.rankDelta>0?'good':x.rankDelta<0?'bad':'muted'}">${x.rankDelta==null?'—':(x.rankDelta>0?'▲ ':'▼ ')+Math.abs(x.rankDelta)}</td><td>${x.score.trend}</td><td>${x.score.momentum}</td><td>${x.score.volume}</td><td>${x.score.relative}</td><td>${fmt(x.rsi,1)}</td></tr>`).join('')||`<tr><td colspan="10" class="muted" style="text-align:center;padding:22px">Sepet boş.</td></tr>`;bindRows();}
+function bindRows(){document.querySelectorAll('[data-symbol]').forEach(el=>el.onclick=()=>openModal(el.dataset.symbol));}
+function openModal(sym){const x=S.data.stocks.find(z=>z.symbol===sym),e=enrich(x);if(!x)return;$('#mTitle').textContent=`${sym} • ${fmt(x.price)} TRY`;const m=[['Radar',fmt(x.score.total,1)],['Sıra',`#${x.rank}`],['Sıra Δ',e.rankDelta==null?'—':(e.rankDelta>0?'▲ ':'▼ ')+Math.abs(e.rankDelta)],['Trend',x.score.trend],['Momentum',x.score.momentum],['Hacim',x.score.volume],['Relatif',x.score.relative],['Risk',x.score.risk],['RSI',fmt(x.rsi,1)],['20g',sign(x.mom20)],['60g',sign(x.mom60)],['120g',sign(x.mom120)]];$('#metrics').innerHTML=m.map(a=>`<div class="metric"><small>${a[0]}</small><strong>${a[1]}</strong></div>`).join('');$('#watchToggle').textContent=S.watch.has(sym)?'★ Sepetten Çıkar':'☆ Sepete Ekle';$('#watchToggle').onclick=()=>{S.watch.has(sym)?S.watch.delete(sym):S.watch.add(sym);localStorage.setItem('bistRadarWatch',JSON.stringify([...S.watch]));openModal(sym);renderTable()};$('#modal').classList.add('open');}
+async function scan(){const app=$('#app');app.classList.add('loading');$('#scanBtn').disabled=true;$('#scanBtn').textContent='Taranıyor…';$('#error').style.display='none';try{const r=await fetch('/api/scan',{cache:'no-store'});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||'Tarama başarısız');S.prev=JSON.parse(localStorage.getItem('bistRadarLastScan')||'null');S.data=j;localStorage.setItem('bistRadarLastScan',JSON.stringify(j));S.nextAt=Date.now()+15*60*1000;render();}catch(e){$('#error').textContent=`Veri alınamadı: ${e.message}. Bu dosyanın Vercel gibi bir sunucuda /api/scan ile çalışması gerekir.`;$('#error').style.display='block';}finally{app.classList.remove('loading');$('#scanBtn').disabled=false;$('#scanBtn').textContent="🔍 BIST'i Tara";}}
+function tick(){if(S.nextAt){const ms=S.nextAt-Date.now();if(ms<=0){scan();return;}const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000);$('#next').textContent=`${m}:${String(s).padStart(2,'0')}`;}else $('#next').textContent='—';}
+$('#scanBtn').onclick=scan;$('#watchBtn').onclick=()=>{S.view='watch';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view==='watch'));renderTable();window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})};document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{S.view=t.dataset.view;document.querySelectorAll('.tab').forEach(z=>z.classList.toggle('active',z===t));renderTable()});$('#close').onclick=()=>$('#modal').classList.remove('open');$('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').classList.remove('open')};setInterval(tick,1000);scan();
+</script>
+</body>
+</html>
