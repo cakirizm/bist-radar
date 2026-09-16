@@ -1,0 +1,13 @@
+// V1: liquid BIST universe. Add/remove symbols here as needed.
+// Yahoo Finance uses the .IS suffix for Borsa Istanbul symbols.
+module.exports = [
+  'AKBNK','ALARK','ARCLK','ASELS','ASTOR','BIMAS','BRSAN','CCOLA','CIMSA','DOAS',
+  'DOHOL','ECILC','EGEEN','EKGYO','ENJSA','ENKAI','EREGL','FROTO','GARAN','GESAN',
+  'GUBRF','HALKB','HEKTS','ISCTR','KCHOL','KONTR','KOZAA','KOZAL','KRDMD','MGROS',
+  'ODAS','OYAKC','PETKM','PGSUS','SAHOL','SASA','SISE','SOKM','TABGD','TAVHL',
+  'TCELL','THYAO','TKFEN','TOASO','TSKB','TTKOM','TTRAK','TUPRS','ULKER','VAKBN',
+  'VESTL','YKBNK','AEFES','AGHOL','AKSA','ALBRK','ANSGR','BERA','BIZIM','BRISA',
+  'BUCIM','CANTE','CLEBI','CWENE','DEVA','DOCO','ECZYT','ENERY','EUPWR','GWIND',
+  'IPEKE','ISMEN','KARSN','KORDS','LOGO','MAVI','MPARK','OTKAR','QUAGR','SELEC',
+  'SMRTG','TATEN','TMSN','TURSG','VESBE','YEOTK','ZOREN'
+];
