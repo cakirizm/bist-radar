@@ -1,0 +1,35 @@
+name: V5 Cleanup
+
+on:
+  push:
+    paths:
+      - ".v5-clean-trigger"
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix escaped newlines
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('\\\\n/* V5 LIGHT PROFESSIONAL THEME */','\n/* V5 LIGHT PROFESSIONAL THEME */')
+          s=s.replace('}\\\\n</style>','}\n</style>')
+          s=s.replace('\\\\n<section class="panel guidance"','\n<section class="panel guidance"')
+          s=s.replace('</section>\\\\n<section class="panel portfolio"','</section>\n<section class="panel portfolio"')
+          p.write_text(s)
+          PY
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix V5 theme formatting [skip ci]"
+          git push
