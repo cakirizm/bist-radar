@@ -72,6 +72,10 @@ function stddevReturns(values, days=20) {
 
 function clamp(v, lo=0, hi=100){ return Math.max(lo, Math.min(hi, v)); }
 function scale(v, min, max){ if (v == null || !Number.isFinite(v)) return 50; return clamp((v-min)/(max-min)*100); }
+function round(v, d=2){ if (!Number.isFinite(v)) return null; const p=10**d; return Math.round(v*p)/p; }
+function minFinite(values){ const a=values.filter(Number.isFinite); return a.length ? Math.min(...a) : null; }
+function maxFinite(values){ const a=values.filter(Number.isFinite); return a.length ? Math.max(...a) : null; }
+function median(values){ const a=values.filter(Number.isFinite).sort((x,y)=>x-y); if(!a.length)return null; const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
 
 function scoreStock(x, index60) {
   const price = x.price;
@@ -105,13 +109,13 @@ function scoreStock(x, index60) {
   );
 
   return {
-    total: Math.round(total*10)/10,
+    total: round(total,1),
     trend: Math.round(trend),
     momentum: Math.round(momScore),
     volume: Math.round(volumeScore),
     relative: Math.round(relative),
     risk: Math.round(risk),
-    relative60: relative60 == null ? null : Math.round(relative60*10)/10
+    relative60: round(relative60,1)
   };
 }
 
@@ -132,10 +136,7 @@ async function fetchYahoo(symbol, range='1y', interval='1d') {
 function dateKey(seconds, timeZone='Europe/Istanbul') {
   if (!Number.isFinite(seconds)) return null;
   try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year:'numeric', month:'2-digit', day:'2-digit'
-    }).format(new Date(seconds * 1000));
+    return new Intl.DateTimeFormat('en-CA', { timeZone, year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(seconds * 1000));
   } catch (_) {
     return new Date(seconds * 1000).toISOString().slice(0,10);
   }
@@ -157,20 +158,16 @@ function getPrevClose(raw, q) {
   const tz = meta.exchangeTimezoneName || 'Europe/Istanbul';
   const marketDay = dateKey(meta.regularMarketTime, tz);
   const lastBarDay = dateKey(timestamps[last], tz);
-
-  // With a 1d chart Yahoo often includes today's still-forming daily bar.
-  // If it does, the previous close is the finite bar immediately before it.
   if (marketDay && lastBarDay && marketDay === lastBarDay) {
-    for (let i = last - 1; i >= 0; i--) {
-      if (Number.isFinite(closes[i])) return closes[i];
-    }
+    for (let i = last - 1; i >= 0; i--) if (Number.isFinite(closes[i])) return closes[i];
   }
   return closes[last];
 }
 
 function normalize(symbol, raw) {
   const q = raw.indicators?.quote?.[0] || {};
-  const closes = (raw.indicators?.adjclose?.[0]?.adjclose || q.close || []).filter(v => Number.isFinite(v));
+  const rawClose = raw.indicators?.adjclose?.[0]?.adjclose || q.close || [];
+  const closes = rawClose.filter(v => Number.isFinite(v));
   const volumes = q.volume || [];
   if (closes.length < 210) throw new Error('Insufficient history');
 
@@ -184,21 +181,38 @@ function normalize(symbol, raw) {
   const finiteVolumes = volumes.filter(v => Number.isFinite(v) && v >= 0);
   const lastv = finiteVolumes.length ? finiteVolumes[finiteVolumes.length-1] : null;
   const previousVolumes = finiteVolumes.slice(Math.max(0, finiteVolumes.length - 21), -1);
-  const avg20v = previousVolumes.length
-    ? previousVolumes.reduce((a,b)=>a+b,0)/previousVolumes.length
-    : null;
+  const avg20v = previousVolumes.length ? previousVolumes.reduce((a,b)=>a+b,0)/previousVolumes.length : null;
+
+  const oneYear = closes.slice(-252);
+  const recent20 = closes.slice(-20);
+  const high52 = maxFinite(oneYear), low52 = minFinite(oneYear);
+  const support20 = minFinite(recent20), resistance20 = maxFinite(recent20);
+  const range52Position = high52 != null && low52 != null && high52 !== low52 ? ((price-low52)/(high52-low52))*100 : null;
+  const spark = closes.slice(-36).map(v=>round(v,3));
 
   return {
     symbol: symbol.replace('.IS',''),
     yahooSymbol: symbol,
-    price,
-    prevClose: prev,
-    changePct: prev ? ((price/prev)-1)*100 : null,
-    ema20:e20, ema50:e50, ema200:e200,
-    rsi:rr, macdHist:mm.hist,
-    mom20:pct(closes,20), mom60:pct(closes,60), mom120:pct(closes,120),
-    volumeRatio: avg20v && lastv != null ? lastv/avg20v : null,
-    vol20: stddevReturns(closes,20),
+    name: meta.longName || meta.shortName || symbol.replace('.IS',''),
+    price: round(price,4),
+    prevClose: round(prev,4),
+    changePct: prev ? round(((price/prev)-1)*100,2) : null,
+    dayHigh: round(meta.regularMarketDayHigh,4),
+    dayLow: round(meta.regularMarketDayLow,4),
+    ema20:round(e20,4), ema50:round(e50,4), ema200:round(e200,4),
+    distEma20: e20 ? round((price/e20-1)*100,2) : null,
+    distEma50: e50 ? round((price/e50-1)*100,2) : null,
+    distEma200: e200 ? round((price/e200-1)*100,2) : null,
+    rsi:round(rr,2), macdHist:round(mm.hist,4),
+    mom20:round(pct(closes,20),2), mom60:round(pct(closes,60),2), mom120:round(pct(closes,120),2),
+    volumeRatio: avg20v && lastv != null ? round(lastv/avg20v,2) : null,
+    vol20: round(stddevReturns(closes,20),2),
+    high52:round(high52,4), low52:round(low52,4), range52Position:round(range52Position,1),
+    drawdown52: high52 ? round((price/high52-1)*100,2) : null,
+    support20:round(support20,4), resistance20:round(resistance20,4),
+    supportDistance: support20 ? round((price/support20-1)*100,2) : null,
+    resistanceDistance: resistance20 ? round((resistance20/price-1)*100,2) : null,
+    spark,
     currency: meta.currency || 'TRY',
     exchangeTime: meta.regularMarketTime ? new Date(meta.regularMarketTime*1000).toISOString() : null
   };
@@ -219,6 +233,36 @@ async function mapLimit(items, limit, fn) {
   return out;
 }
 
+function marketStats(stocks, index) {
+  const advancers = stocks.filter(x=>x.changePct > 0.05).length;
+  const decliners = stocks.filter(x=>x.changePct < -0.05).length;
+  const flat = stocks.length - advancers - decliners;
+  const changes = stocks.map(x=>x.changePct).filter(Number.isFinite);
+  const above50 = stocks.filter(x=>x.price > x.ema50).length;
+  const above200 = stocks.filter(x=>x.price > x.ema200).length;
+  const volumeSurge = stocks.filter(x=>x.volumeRatio >= 1.5).length;
+  const breadth = (advancers + decliners) ? advancers/(advancers+decliners)*100 : 50;
+  const above50Pct = stocks.length ? above50/stocks.length*100 : 50;
+  const above200Pct = stocks.length ? above200/stocks.length*100 : 50;
+  const indexTrend = (index.price > index.ema50 ? 55 : 20) + (index.price > index.ema200 ? 45 : 10);
+  const health = clamp(breadth*0.35 + above50Pct*0.30 + above200Pct*0.20 + indexTrend*0.15);
+  let regime = 'Dengeli';
+  if (health >= 67) regime = 'Risk iştahı güçlü';
+  else if (health >= 55) regime = 'Pozitif';
+  else if (health < 38) regime = 'Riskten kaçış';
+  else if (health < 48) regime = 'Zayıf';
+  return {
+    advancers, decliners, flat,
+    breadth:round(breadth,1),
+    averageChange:round(changes.reduce((a,b)=>a+b,0)/(changes.length||1),2),
+    medianChange:round(median(changes),2),
+    aboveEma50Pct:round(above50Pct,1),
+    aboveEma200Pct:round(above200Pct,1),
+    volumeSurge,
+    health:round(health,0), regime
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({error:'Method not allowed'});
   try {
@@ -231,21 +275,29 @@ module.exports = async function handler(req, res) {
     const scored = ok.map(x => ({...x, score: scoreStock(x, index.mom60)}));
     scored.sort((a,b)=>b.score.total-a.score.total);
     scored.forEach((x,i)=>x.rank=i+1);
+    const market = marketStats(scored, index);
 
     res.setHeader('Cache-Control','s-maxage=300, stale-while-revalidate=60');
     return res.status(200).json({
       ok:true,
+      version:'2.0',
       generatedAt:new Date().toISOString(),
       source:'Yahoo Finance chart endpoint (unofficial)',
       delayed:true,
       universeCount:universe.length,
       successCount:scored.length,
       failedCount:failed.length,
-      index:{symbol:'XU100', price:index.price, prevClose:index.prevClose, changePct:index.changePct, mom60:index.mom60, exchangeTime:index.exchangeTime},
+      market,
+      index:{
+        symbol:'XU100', price:index.price, prevClose:index.prevClose, changePct:index.changePct,
+        mom20:index.mom20, mom60:index.mom60, rsi:index.rsi,
+        ema20:index.ema20, ema50:index.ema50, ema200:index.ema200,
+        distEma50:index.distEma50, exchangeTime:index.exchangeTime, spark:index.spark
+      },
       stocks:scored,
       failed
     });
   } catch (e) {
     return res.status(500).json({ok:false,error:e.message || 'Scan failed'});
   }
-}
+};
