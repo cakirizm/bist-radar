@@ -129,29 +129,75 @@ async function fetchYahoo(symbol, range='1y', interval='1d') {
   } finally { clearTimeout(t); }
 }
 
+function dateKey(seconds, timeZone='Europe/Istanbul') {
+  if (!Number.isFinite(seconds)) return null;
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year:'numeric', month:'2-digit', day:'2-digit'
+    }).format(new Date(seconds * 1000));
+  } catch (_) {
+    return new Date(seconds * 1000).toISOString().slice(0,10);
+  }
+}
+
+function getPrevClose(raw, q) {
+  const meta = raw.meta || {};
+  if (Number.isFinite(meta.regularMarketPreviousClose)) return meta.regularMarketPreviousClose;
+  if (Number.isFinite(meta.previousClose)) return meta.previousClose;
+
+  const timestamps = raw.timestamp || [];
+  const closes = q.close || [];
+  let last = -1;
+  for (let i = Math.min(timestamps.length, closes.length) - 1; i >= 0; i--) {
+    if (Number.isFinite(closes[i])) { last = i; break; }
+  }
+  if (last < 0) return null;
+
+  const tz = meta.exchangeTimezoneName || 'Europe/Istanbul';
+  const marketDay = dateKey(meta.regularMarketTime, tz);
+  const lastBarDay = dateKey(timestamps[last], tz);
+
+  // With a 1d chart Yahoo often includes today's still-forming daily bar.
+  // If it does, the previous close is the finite bar immediately before it.
+  if (marketDay && lastBarDay && marketDay === lastBarDay) {
+    for (let i = last - 1; i >= 0; i--) {
+      if (Number.isFinite(closes[i])) return closes[i];
+    }
+  }
+  return closes[last];
+}
+
 function normalize(symbol, raw) {
   const q = raw.indicators?.quote?.[0] || {};
   const closes = (raw.indicators?.adjclose?.[0]?.adjclose || q.close || []).filter(v => Number.isFinite(v));
-  const volumes = (q.volume || []).filter(v => Number.isFinite(v));
+  const volumes = q.volume || [];
   if (closes.length < 210) throw new Error('Insufficient history');
+
   const meta = raw.meta || {};
   const price = Number.isFinite(meta.regularMarketPrice) ? meta.regularMarketPrice : closes[closes.length-1];
-  const prev = Number.isFinite(meta.chartPreviousClose) ? meta.chartPreviousClose : closes[closes.length-2];
+  const prev = getPrevClose(raw, q);
   const e20 = ema(closes,20), e50 = ema(closes,50), e200 = ema(closes,200);
   const rr = rsi(closes,14);
   const mm = macd(closes);
-  const last20v = volumes.slice(-20);
-  const avg20v = last20v.length ? last20v.reduce((a,b)=>a+b,0)/last20v.length : null;
-  const lastv = volumes[volumes.length-1] || null;
+
+  const finiteVolumes = volumes.filter(v => Number.isFinite(v) && v >= 0);
+  const lastv = finiteVolumes.length ? finiteVolumes[finiteVolumes.length-1] : null;
+  const previousVolumes = finiteVolumes.slice(Math.max(0, finiteVolumes.length - 21), -1);
+  const avg20v = previousVolumes.length
+    ? previousVolumes.reduce((a,b)=>a+b,0)/previousVolumes.length
+    : null;
+
   return {
     symbol: symbol.replace('.IS',''),
     yahooSymbol: symbol,
     price,
+    prevClose: prev,
     changePct: prev ? ((price/prev)-1)*100 : null,
     ema20:e20, ema50:e50, ema200:e200,
     rsi:rr, macdHist:mm.hist,
     mom20:pct(closes,20), mom60:pct(closes,60), mom120:pct(closes,120),
-    volumeRatio: avg20v && lastv ? lastv/avg20v : null,
+    volumeRatio: avg20v && lastv != null ? lastv/avg20v : null,
     vol20: stddevReturns(closes,20),
     currency: meta.currency || 'TRY',
     exchangeTime: meta.regularMarketTime ? new Date(meta.regularMarketTime*1000).toISOString() : null
@@ -195,7 +241,7 @@ module.exports = async function handler(req, res) {
       universeCount:universe.length,
       successCount:scored.length,
       failedCount:failed.length,
-      index:{symbol:'XU100', price:index.price, changePct:index.changePct, mom60:index.mom60, exchangeTime:index.exchangeTime},
+      index:{symbol:'XU100', price:index.price, prevClose:index.prevClose, changePct:index.changePct, mom60:index.mom60, exchangeTime:index.exchangeTime},
       stocks:scored,
       failed
     });
