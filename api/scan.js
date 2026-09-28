@@ -122,7 +122,7 @@ function scoreStock(x, index60) {
 async function fetchYahoo(symbol, range='1y', interval='1d') {
   const url = `${YAHOO}${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`;
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 8000);
+  const t = setTimeout(() => ctl.abort(), 4000);
   try {
     const r = await fetch(url, {headers:{'user-agent':UA,'accept':'application/json'}, signal: ctl.signal});
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -269,7 +269,7 @@ module.exports = async function handler(req, res) {
     const indexRaw = await fetchYahoo('XU100.IS');
     const index = normalize('XU100.IS', indexRaw);
     const symbols = universe.map(s => `${s}.IS`);
-    const fetched = await mapLimit(symbols, 12, async s => normalize(s, await fetchYahoo(s)));
+    const fetched = await mapLimit(symbols, 18, async s => normalize(s, await fetchYahoo(s)));
     const ok = fetched.filter(x => !x.error);
     const failed = fetched.filter(x => x.error).map(x => ({symbol:x.item, error:x.error}));
     const scored = ok.map(x => ({...x, score: scoreStock(x, index.mom60)}));
